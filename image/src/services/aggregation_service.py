@@ -145,3 +145,13 @@ class AggregationService:
         raw_data = aggregation.model_dump()
         logger.debug(f"Raw aggregation data for GID {GID}: {raw_data}")
         return raw_data
+
+    @staticmethod
+    async def get_all_aggregations():
+        try:
+            collection = AggregationService.get_collection()
+            aggregations = await collection.find({}).to_list(None)
+            return aggregations
+        except Exception as e:
+            logger.error(f"Error fetching all aggregations: {str(e)}", exc_info=True)
+            raise
