@@ -55,7 +55,7 @@ async def get_buildings():
         cursor = collection.find()
         buildings = await cursor.to_list(length=None)
 
-        # # logger.debug(f"Raw buildings data: {buildings}")
+        # # #logger.debug(f"Raw buildings data: {buildings}")
 
         if not buildings:
             logger.info("No buildings found")

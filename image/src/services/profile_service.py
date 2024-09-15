@@ -19,13 +19,13 @@ class ProfileService:
     @staticmethod
     async def get_profile_by_email(email: str):
         try:
-            # logger.debug(f"Fetching profile by email: {email}")
+            # #logger.debug(f"Fetching profile by email: {email}")
             collection = ProfileService.get_collection()
             profile = await collection.find_one({"email": email})
             if profile:
-                # logger.debug(f"Profile found: {profile}")
+                # #logger.debug(f"Profile found: {profile}")
                 return ProfileResponse.model_validate(profile)
-            # logger.debug("Profile not found")
+            # #logger.debug("Profile not found")
             return None
         except Exception as e:
             logger.error(f"Error fetching profile by email: {str(e)}")
@@ -34,12 +34,12 @@ class ProfileService:
     @staticmethod
     async def create_profile(profile: ProfileCreate):
         try:
-            # logger.debug(f"Creating profile: {profile}")
+            # #logger.debug(f"Creating profile: {profile}")
             collection = ProfileService.get_collection()
             profile_dict = profile.model_dump()
             result = await collection.insert_one(profile_dict)
             created_profile = await collection.find_one({"_id": result.inserted_id})
-            # logger.debug(f"Created profile: {created_profile}")
+            # #logger.debug(f"Created profile: {created_profile}")
             return ProfileResponse.model_validate(created_profile)
         except Exception as e:
             logger.error(f"Error creating profile: {str(e)}")
@@ -48,7 +48,7 @@ class ProfileService:
     @staticmethod
     async def update_profile(profile: ProfileCreate):
         try:
-            # logger.debug(f"Update profile: {profile}")
+            # #logger.debug(f"Update profile: {profile}")
             collection = ProfileService.get_collection()
             profile_dict = profile.model_dump()
             update_result = await collection.update_one(
@@ -60,7 +60,7 @@ class ProfileService:
             updated_profile = await collection.find_one(
                 {"_id": ObjectId(profile_dict["id"])}
             )
-            # logger.debug(f"Update profile: {updated_profile}")
+            # #logger.debug(f"Update profile: {updated_profile}")
             return ProfileResponse.model_validate(updated_profile)
         except Exception as e:
             logger.error(f"Error updating profile: {str(e)}")

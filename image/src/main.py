@@ -6,8 +6,7 @@ from db.mongodb import connect_to_mongo, close_mongo_connection
 from middleware.auth import AuthMiddleware
 from mangum import Mangum
 import logging
-
-from api.endpoints import user, building, review, profile, plan
+from api.endpoints import user, building, review, profile, plan, aggregation
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -34,6 +33,10 @@ app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
 app.include_router(building.router, prefix="/api/buildings", tags=["buildings"])
 app.include_router(review.router, prefix="/api/review", tags=["review"])
 app.include_router(plan.router, prefix="/api/plan", tags=["plan"])
+app.include_router(
+    aggregation.router, prefix="/api/aggregations", tags=["aggregations"]
+)
+
 
 handler = Mangum(app)
 

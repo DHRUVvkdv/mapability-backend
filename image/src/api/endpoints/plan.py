@@ -100,7 +100,7 @@ import json
 async def analyze_user_input(user_input: str) -> List[Dict[str, str]]:
     try:
         client = await get_openai_client()
-        logger.debug(f"OpenAI client created successfully")
+        # logger.debug(f"OpenAI client created successfully")
 
         response = client.chat.completions.create(
             model="gpt-4o",  # Using GPT-4 for better understanding
@@ -123,7 +123,7 @@ Please categorize the user's input and provide a brief explanation for each cate
             functions=functions,
             function_call={"name": "get_multiple_categories"},
         )
-        logger.debug(f"OpenAI API response received: {response}")
+        # logger.debug(f"OpenAI API response received: {response}")
 
         function_calls = response.choices[0].message.function_call
         if function_calls and function_calls.name == "get_multiple_categories":
