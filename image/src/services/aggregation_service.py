@@ -48,32 +48,52 @@ class AggregationService:
 
         reviews = await reviews_collection.find({"GID": GID}).to_list(length=None)
 
-        mobility_dict = {
-            k: [0, 0] for k in aggregation.mobility_accessibility_dict.keys()
-        }
-        mobility_rating_sum = 0
-        mobility_rating_count = 0
+        accessibility_categories = [
+            "mobility_accessibility",
+            "cognitive_accessibility",
+            "hearing_accessibility",
+            "vision_accessibility",
+            "bathroom_accessibility",
+            "lgbtq_inclusivity",
+            "sensory_considerations",
+            "overall_inclusivity",
+        ]
 
-        for review in reviews:
-            review_model = ReviewModel.model_validate(review)
+        for category in accessibility_categories:
+            dict_field = f"{category}_dict"
+            rating_field = f"{category}_rating"
 
-            if review_model.mobility_accessibility_dict:
-                for key, value in review_model.mobility_accessibility_dict.items():
-                    if value.lower() in ["true", "false"]:
-                        mobility_dict[key][0] += 1 if value.lower() == "true" else 0
-                        mobility_dict[key][1] += 1
+            category_dict = getattr(aggregation, dict_field)
+            category_rating_sum, category_rating_count = getattr(
+                aggregation, rating_field
+            )
 
-            if review_model.mobility_accessibility_rating is not 0:
-                mobility_rating_sum += review_model.mobility_accessibility_rating
-                mobility_rating_count += 1
+            for review in reviews:
+                review_model = ReviewModel.model_validate(review)
 
-        aggregation.mobility_accessibility_dict = {
-            k: tuple(v) for k, v in mobility_dict.items()
-        }
-        aggregation.mobility_accessibility_rating = (
-            mobility_rating_sum,
-            mobility_rating_count,
-        )
+                if hasattr(review_model, dict_field):
+                    review_dict = getattr(review_model, dict_field)
+                    if review_dict:
+                        for key, value in review_dict.items():
+                            if key in category_dict:
+                                if value.lower() in ["true", "false"]:
+                                    true_count, total_count = category_dict[key]
+                                    category_dict[key] = (
+                                        true_count
+                                        + (1 if value.lower() == "true" else 0),
+                                        total_count + 1,
+                                    )
+
+                if hasattr(review_model, rating_field):
+                    rating = getattr(review_model, rating_field)
+                    if rating is not None and rating != 0:
+                        category_rating_sum += rating
+                        category_rating_count += 1
+
+            setattr(aggregation, dict_field, category_dict)
+            setattr(
+                aggregation, rating_field, (category_rating_sum, category_rating_count)
+            )
 
         await aggregation_collection.update_one(
             {"GID": GID}, {"$set": aggregation.model_dump(exclude_none=True)}
@@ -93,44 +113,7 @@ class AggregationService:
 
     @staticmethod
     async def debug_update_aggregation(GID: str):
-        reviews_collection = AggregationService.get_reviews_collection()
-        aggregation_collection = AggregationService.get_collection()
-
-        aggregation = await AggregationService.get_or_create_aggregation(GID)
-
-        reviews = await reviews_collection.find({"GID": GID}).to_list(length=None)
-
-        mobility_dict = {
-            k: [0, 0] for k in aggregation.mobility_accessibility_dict.keys()
-        }
-        mobility_rating_sum = 0
-        mobility_rating_count = 0
-
-        for review in reviews:
-            review_model = ReviewModel.model_validate(review)
-
-            if review_model.mobility_accessibility_dict:
-                for key, value in review_model.mobility_accessibility_dict.items():
-                    if value.lower() in ["true", "false"]:
-                        mobility_dict[key][0] += 1 if value.lower() == "true" else 0
-                        mobility_dict[key][1] += 1
-
-            if review_model.mobility_accessibility_rating is not None:
-                mobility_rating_sum += review_model.mobility_accessibility_rating
-                mobility_rating_count += 1
-
-        aggregation.mobility_accessibility_dict = {
-            k: tuple(v) for k, v in mobility_dict.items()
-        }
-        aggregation.mobility_accessibility_rating = (
-            mobility_rating_sum,
-            mobility_rating_count,
-        )
-
-        # Convert the aggregation model to a dictionary
+        aggregation = await AggregationService.update_aggregation(GID)
         raw_data = aggregation.model_dump()
-
-        # Log the raw data
         logger.debug(f"Raw aggregation data for GID {GID}: {raw_data}")
-
         return raw_data
