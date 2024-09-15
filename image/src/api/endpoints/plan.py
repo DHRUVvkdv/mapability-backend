@@ -5,6 +5,7 @@ import logging
 from openai import OpenAI
 import asyncio
 from core.config import settings
+import json
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -16,83 +17,132 @@ async def get_openai_client():
 
 # Category functions
 def get_entertainment():
-    return "Entertainment"
+    return {
+        "category": "Entertainment",
+        "description": "Options for fun activities like movies, concerts, or other events.",
+    }
 
 
 def get_establishment():
-    return "Establishment"  # Note: This is interpreted as a study place
+    return {
+        "category": "Establishment",
+        "description": "Study places or educational establishments. Here the user can study or work.",
+    }
 
 
 def get_fitness():
-    return "Fitness"
+    return {
+        "category": "Fitness",
+        "description": "Fitness-related locations like gyms or sports facilities.",
+    }
 
 
 def get_housing():
-    return "Housing"
+    return {"category": "Housing", "description": "Housing-related locations."}
 
 
 def get_restaurant():
-    return "Restaurant"
+    return {
+        "category": "Restaurant",
+        "description": "Food-related locations for eating out.",
+    }
 
 
 def get_other():
-    return "Other"
+    return {
+        "category": "Other",
+        "description": "Other types of locations not covered by the specific categories.",
+    }
 
 
 functions = [
     {
-        "name": "get_entertainment",
-        "description": "Get entertainment options for activities like movies, concerts, or other fun events.",
-    },
-    {
-        "name": "get_establishment",
-        "description": "Get study places or educational establishments.",
-    },
-    {
-        "name": "get_fitness",
-        "description": "Get fitness-related locations like gyms or sports facilities.",
-    },
-    {
-        "name": "get_housing",
-        "description": "Get housing-related locations.",
-    },
-    {
-        "name": "get_restaurant",
-        "description": "Get restaurant or food-related locations. If the users mentions about eating or something similar, this function will be called.",
-    },
-    {
-        "name": "get_other",
-        "description": "Get other types of locations not covered by the specific categories.",
-    },
+        "name": "get_multiple_categories",
+        "description": "Get multiple categories based on the user's input, with explanations",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "category": {
+                                "type": "string",
+                                "enum": [
+                                    "Entertainment",
+                                    "Establishment",
+                                    "Fitness",
+                                    "Housing",
+                                    "Restaurant",
+                                    "Other",
+                                ],
+                            },
+                            "explanation": {
+                                "type": "string",
+                                "description": "Explanation of why this category was chosen",
+                            },
+                        },
+                        "required": ["category", "explanation"],
+                    },
+                    "description": "List of categories that match the user's input, with explanations",
+                }
+            },
+            "required": ["categories"],
+        },
+    }
 ]
 
 
-async def analyze_user_input(user_input: str) -> List[str]:
+import json
+
+
+async def analyze_user_input(user_input: str) -> List[Dict[str, str]]:
     try:
         client = await get_openai_client()
         logger.debug(f"OpenAI client created successfully")
 
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o",  # Using GPT-4 for better understanding
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful assistant that analyzes user input to determine which categories of activities they're interested in.",
+                    "content": """You are a helpful assistant that analyzes user input to determine which categories of activities they're interested in. You can suggest multiple categories if the input implies multiple activities. Here are the categories and their meanings:
+
+- Entertainment: Fun activities like movies, concerts, or other events.
+- Establishment: Study places, educational establishments, or work locations. This includes any activity related to studying, working, or learning.
+- Fitness: Fitness-related locations like gyms or sports facilities.
+- Housing: Housing-related locations or activities.
+- Restaurant: Food-related locations for eating out or any activity related to dining.
+- Other: Other types of locations or activities not covered by the specific categories above.
+
+Please categorize the user's input and provide a brief explanation for each category chosen.""",
                 },
                 {"role": "user", "content": user_input},
             ],
             functions=functions,
-            function_call="auto",
+            function_call={"name": "get_multiple_categories"},
         )
         logger.debug(f"OpenAI API response received: {response}")
 
         function_calls = response.choices[0].message.function_call
-        if function_calls:
-            function_name = function_calls.name
-            logger.info(f"Function called: {function_name}")
-            return [globals()[function_name]()]
+        if function_calls and function_calls.name == "get_multiple_categories":
+            try:
+                categories = json.loads(function_calls.arguments)["categories"]
+                logger.info(f"Categories determined: {categories}")
+                return categories
+            except json.JSONDecodeError:
+                logger.error(
+                    f"Error decoding JSON from OpenAI response: {function_calls.arguments}"
+                )
+                return []
+            except KeyError:
+                logger.error(
+                    f"'categories' key not found in OpenAI response: {function_calls.arguments}"
+                )
+                return []
         else:
-            logger.info("No function was called by OpenAI")
+            logger.info("No categories were determined by OpenAI")
             return []
     except Exception as e:
         logger.error(f"Error in analyze_user_input: {str(e)}", exc_info=True)
@@ -101,13 +151,21 @@ async def analyze_user_input(user_input: str) -> List[str]:
         )
 
 
+# Update the plan_activities function to use these new return values
 async def plan_activities(
     user_input: str,
     user_disabilities: Dict[str, List[str]],
     building_categories: List[str],
 ) -> Dict[str, Any]:
     try:
-        activity_categories = await analyze_user_input(user_input)
+        categories = await analyze_user_input(user_input)
+        activity_categories = [
+            {
+                **globals()[f"get_{cat['category'].lower()}"](),
+                "explanation": cat["explanation"],
+            }
+            for cat in categories
+        ]
         logger.info(f"Activity categories determined: {activity_categories}")
 
         return {
@@ -156,6 +214,42 @@ async def plan_user_activities(email: str, user_input: str):
     except Exception as e:
         logger.error(f"Error planning activities for {email}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@router.get("/debug-openai/{user_input}")
+async def debug_openai_response(user_input: str):
+    try:
+        client = await get_openai_client()
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "system",
+                    "content": """You are a helpful assistant that analyzes user input to determine which categories of activities they're interested in. You can suggest multiple categories if the input implies multiple activities. Here are the categories and their meanings:
+
+- Entertainment: Fun activities like movies, concerts, or other events.
+- Establishment: Study places, educational establishments, or work locations. This includes any activity related to studying, working, or learning.
+- Fitness: Fitness-related locations like gyms or sports facilities.
+- Housing: Housing-related locations or activities.
+- Restaurant: Food-related locations for eating out or any activity related to dining.
+- Other: Other types of locations or activities not covered by the specific categories above.
+
+Please categorize the user's input and provide a brief explanation for each category chosen.""",
+                },
+                {"role": "user", "content": user_input},
+            ],
+            functions=functions,
+            function_call={"name": "get_multiple_categories"},
+        )
+        return {
+            "message": "OpenAI debug response",
+            "response": response.dict(),
+        }
+    except Exception as e:
+        logger.error(f"Error in debug OpenAI response: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail=f"Error in debug OpenAI response: {str(e)}"
+        )
 
 
 # returning the buildings requried for the user
