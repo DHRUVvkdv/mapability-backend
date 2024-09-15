@@ -18,10 +18,10 @@ class ReviewService:
     @staticmethod
     async def get_reviews():
         try:
-            logger.debug("Fetching all reviews")
+            # #logger.debug("Fetching all reviews")
             collection = ReviewService.get_collection()
             reviews = await collection.find().to_list(1000)
-            logger.debug(f"Fetched reviews: {reviews}")
+            # #logger.debug(f"Fetched reviews: {reviews}")
             return [ReviewResponse.model_validate(review) for review in reviews]
         except Exception as e:
             logger.error(f"Error fetching reviews: {str(e)}")
@@ -30,19 +30,19 @@ class ReviewService:
     @staticmethod
     async def create_review(review: ReviewCreate):
         try:
-            logger.debug(f"Creating review: {review}")
+            # #logger.debug(f"Creating review: {review}")
             collection = ReviewService.get_collection()
 
-            logger.debug("Converting review to dict")
+            # #logger.debug("Converting review to dict")
             review_dict = review.model_dump(exclude_none=True)
-            logger.debug(f"Review dict: {review_dict}")
+            # #logger.debug(f"Review dict: {review_dict}")
 
-            logger.debug("Inserting review into database")
+            # #logger.debug("Inserting review into database")
             result = await collection.insert_one(review_dict)
-            logger.debug(f"Insert result: {result.inserted_id}")
+            # #logger.debug(f"Insert result: {result.inserted_id}")
 
             created_review = await collection.find_one({"_id": result.inserted_id})
-            logger.debug(f"Created review: {created_review}")
+            # #logger.debug(f"Created review: {created_review}")
 
             return ReviewResponse.model_validate(created_review)
         except Exception as e:

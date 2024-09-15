@@ -24,9 +24,9 @@ async def get_reviews():
 @router.post("/create-review", response_model=ReviewResponse)
 async def create_review(review: ReviewCreate):
     try:
-        logger.debug(f"Received review create request: {review}")
+        # # #logger.debug(f"Received review create request: {review}")
         result = await ReviewService.create_review(review)
-        logger.debug(f"Review created successfully: {result}")
+        # # #logger.debug(f"Review created successfully: {result}")
         return result
     except PyMongoError as e:
         logger.error(f"Database error in create_review: {str(e)}")
