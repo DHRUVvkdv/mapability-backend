@@ -44,10 +44,23 @@ class AggregationCreate(AggregationModel):
 
 
 class AggregationResponse(BaseModel):
-    id: str = Field(..., alias="_id")
+    id: Union[str, ObjectId] = Field(..., alias="_id")
     GID: str
     mobility_accessibility_dict: Dict[str, Union[Tuple[int, int], List[int]]]
     mobility_accessibility_rating: Union[Tuple[int, int], List[int]]
+
+    @field_serializer("id")
+    def serialize_id(self, id: Union[str, ObjectId]):
+        return str(id)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_object_id(cls, v):
+        if isinstance(v, ObjectId):
+            return str(v)
+        if ObjectId.is_valid(v):
+            return str(ObjectId(v))
+        raise ValueError("Invalid ObjectId")
 
     @field_validator("mobility_accessibility_dict")
     @classmethod
@@ -62,8 +75,6 @@ class AggregationResponse(BaseModel):
     model_config = {
         "populate_by_name": True,
         "arbitrary_types_allowed": True,
-        "json_encoders": {
-            tuple: list
-        },  # This will ensure tuples are serialized as lists in JSON
+        "json_encoders": {ObjectId: str, tuple: list},
         "from_attributes": True,
     }
