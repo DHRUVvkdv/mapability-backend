@@ -15,6 +15,8 @@ class AggregationModel(BaseModel):
         }
     )
     mobility_accessibility_rating: Tuple[int, int] = Field(default=(0, 0))
+    mobility_accessibility_texts: List[str] = Field(default_factory=list)
+
     cognitive_accessibility_dict: Dict[str, Tuple[int, int]] = Field(
         default_factory=lambda: {
             "clearsignage": (0, 0),
@@ -24,6 +26,8 @@ class AggregationModel(BaseModel):
         }
     )
     cognitive_accessibility_rating: Tuple[int, int] = Field(default=(0, 0))
+    cognitive_accessibility_texts: List[str] = Field(default_factory=list)
+
     hearing_accessibility_dict: Dict[str, Tuple[int, int]] = Field(
         default_factory=lambda: {
             "visualalarms": (0, 0),
@@ -33,6 +37,8 @@ class AggregationModel(BaseModel):
         }
     )
     hearing_accessibility_rating: Tuple[int, int] = Field(default=(0, 0))
+    hearing_accessibility_texts: List[str] = Field(default_factory=list)
+
     vision_accessibility_dict: Dict[str, Tuple[int, int]] = Field(
         default_factory=lambda: {
             "braillesignage": (0, 0),
@@ -42,6 +48,8 @@ class AggregationModel(BaseModel):
         }
     )
     vision_accessibility_rating: Tuple[int, int] = Field(default=(0, 0))
+    vision_accessibility_texts: List[str] = Field(default_factory=list)
+
     bathroom_accessibility_dict: Dict[str, Tuple[int, int]] = Field(
         default_factory=lambda: {
             "gender-neutraloptions": (0, 0),
@@ -51,6 +59,8 @@ class AggregationModel(BaseModel):
         }
     )
     bathroom_accessibility_rating: Tuple[int, int] = Field(default=(0, 0))
+    bathroom_accessibility_texts: List[str] = Field(default_factory=list)
+
     lgbtq_inclusivity_dict: Dict[str, Tuple[int, int]] = Field(
         default_factory=lambda: {
             "gender-inclusivepolicies": (0, 0),
@@ -59,6 +69,8 @@ class AggregationModel(BaseModel):
         }
     )
     lgbtq_inclusivity_rating: Tuple[int, int] = Field(default=(0, 0))
+    lgbtq_inclusivity_texts: List[str] = Field(default_factory=list)
+
     sensory_considerations_dict: Dict[str, Tuple[int, int]] = Field(
         default_factory=lambda: {
             "quiethours/zones": (0, 0),
@@ -67,6 +79,8 @@ class AggregationModel(BaseModel):
         }
     )
     sensory_considerations_rating: Tuple[int, int] = Field(default=(0, 0))
+    sensory_considerations_texts: List[str] = Field(default_factory=list)
+
     overall_inclusivity_dict: Dict[str, Tuple[int, int]] = Field(
         default_factory=lambda: {
             "diverserepresentationinimagery/art": (0, 0),
@@ -75,6 +89,7 @@ class AggregationModel(BaseModel):
         }
     )
     overall_inclusivity_rating: Tuple[int, int] = Field(default=(0, 0))
+    overall_inclusivity_texts: List[str] = Field(default_factory=list)
 
     @field_serializer("id")
     def serialize_id(self, id: Optional[str], _info):
@@ -108,20 +123,35 @@ class AggregationResponse(BaseModel):
     GID: str
     mobility_accessibility_dict: Dict[str, Union[Tuple[int, int], List[int]]]
     mobility_accessibility_rating: Union[Tuple[int, int], List[int]]
+    mobility_accessibility_texts: List[str]
+
     cognitive_accessibility_dict: Dict[str, Union[Tuple[int, int], List[int]]]
     cognitive_accessibility_rating: Union[Tuple[int, int], List[int]]
+    cognitive_accessibility_texts: List[str]
+
     hearing_accessibility_dict: Dict[str, Union[Tuple[int, int], List[int]]]
     hearing_accessibility_rating: Union[Tuple[int, int], List[int]]
+    hearing_accessibility_texts: List[str]
+
     vision_accessibility_dict: Dict[str, Union[Tuple[int, int], List[int]]]
     vision_accessibility_rating: Union[Tuple[int, int], List[int]]
+    vision_accessibility_texts: List[str]
+
     bathroom_accessibility_dict: Dict[str, Union[Tuple[int, int], List[int]]]
     bathroom_accessibility_rating: Union[Tuple[int, int], List[int]]
+    bathroom_accessibility_texts: List[str]
+
     lgbtq_inclusivity_dict: Dict[str, Union[Tuple[int, int], List[int]]]
     lgbtq_inclusivity_rating: Union[Tuple[int, int], List[int]]
+    lgbtq_inclusivity_texts: List[str]
+
     sensory_considerations_dict: Dict[str, Union[Tuple[int, int], List[int]]]
     sensory_considerations_rating: Union[Tuple[int, int], List[int]]
+    sensory_considerations_texts: List[str]
+
     overall_inclusivity_dict: Dict[str, Union[Tuple[int, int], List[int]]]
     overall_inclusivity_rating: Union[Tuple[int, int], List[int]]
+    overall_inclusivity_texts: List[str]
 
     @field_serializer("id")
     def serialize_id(self, id: Union[str, ObjectId]):

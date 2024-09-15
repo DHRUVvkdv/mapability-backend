@@ -46,6 +46,7 @@ class AggregationService:
 
         aggregation = await AggregationService.get_or_create_aggregation(GID)
 
+        # Get all reviews for this GID
         reviews = await reviews_collection.find({"GID": GID}).to_list(length=None)
 
         accessibility_categories = [
@@ -59,25 +60,41 @@ class AggregationService:
             "overall_inclusivity",
         ]
 
+        # Reset all counts and ratings
         for category in accessibility_categories:
             dict_field = f"{category}_dict"
             rating_field = f"{category}_rating"
+            text_field = f"{category}_texts"
 
             category_dict = getattr(aggregation, dict_field)
-            category_rating_sum, category_rating_count = getattr(
-                aggregation, rating_field
-            )
+            for key in category_dict:
+                category_dict[key] = (0, 0)  # Reset counts
+            setattr(aggregation, dict_field, category_dict)
+            setattr(aggregation, rating_field, (0, 0))  # Reset rating
+            setattr(aggregation, text_field, [])  # Reset texts
 
-            for review in reviews:
-                review_model = ReviewModel.model_validate(review)
+        # Process all reviews
+        for review in reviews:
+            review_model = ReviewModel.model_validate(review)
+
+            for category in accessibility_categories:
+                dict_field = f"{category}_dict"
+                rating_field = f"{category}_rating"
+                text_field = f"{category}_texts"
+
+                category_dict = getattr(aggregation, dict_field)
+                category_rating_sum, category_rating_count = getattr(
+                    aggregation, rating_field
+                )
+                category_texts = getattr(aggregation, text_field)
 
                 if hasattr(review_model, dict_field):
                     review_dict = getattr(review_model, dict_field)
                     if review_dict:
                         for key, value in review_dict.items():
                             if key in category_dict:
+                                true_count, total_count = category_dict[key]
                                 if value.lower() in ["true", "false"]:
-                                    true_count, total_count = category_dict[key]
                                     category_dict[key] = (
                                         true_count
                                         + (1 if value.lower() == "true" else 0),
@@ -90,11 +107,22 @@ class AggregationService:
                         category_rating_sum += rating
                         category_rating_count += 1
 
-            setattr(aggregation, dict_field, category_dict)
-            setattr(
-                aggregation, rating_field, (category_rating_sum, category_rating_count)
-            )
+                if hasattr(
+                    review_model, text_field.rstrip("s")
+                ):  # Remove 's' from 'texts'
+                    text = getattr(review_model, text_field.rstrip("s"))
+                    if text and text.strip():  # Only add non-empty texts
+                        category_texts.append(text.strip())
 
+                setattr(aggregation, dict_field, category_dict)
+                setattr(
+                    aggregation,
+                    rating_field,
+                    (category_rating_sum, category_rating_count),
+                )
+                setattr(aggregation, text_field, category_texts)
+
+        # Update the aggregation in the database
         await aggregation_collection.update_one(
             {"GID": GID}, {"$set": aggregation.model_dump(exclude_none=True)}
         )
