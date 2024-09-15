@@ -8,8 +8,15 @@ from models.aggregation_model import (
 )
 from models.review_model import ReviewModel
 import logging
+from typing import Dict, List, Tuple
+from openai import OpenAI
+from core.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+async def get_openai_client():
+    return OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 class AggregationService:
@@ -155,3 +162,104 @@ class AggregationService:
         except Exception as e:
             logger.error(f"Error fetching all aggregations: {str(e)}", exc_info=True)
             raise
+
+    @staticmethod
+    async def summarize_building(GID: str) -> Dict[str, str]:
+        aggregation = await AggregationService.get_aggregation(GID)
+        summary = {}
+
+        categories = [
+            "mobility_accessibility",
+            "cognitive_accessibility",
+            "hearing_accessibility",
+            "vision_accessibility",
+            "bathroom_accessibility",
+            "lgbtq_inclusivity",
+            "sensory_considerations",
+            "overall_inclusivity",
+        ]
+
+        category_intros = {
+            "mobility_accessibility": "Mobility features and accessibility:",
+            "cognitive_accessibility": "Cognitive support and accessibility:",
+            "hearing_accessibility": "Hearing assistance and accessibility:",
+            "vision_accessibility": "Vision support and accessibility:",
+            "bathroom_accessibility": "Bathroom accessibility features:",
+            "lgbtq_inclusivity": "LGBTQ+ inclusivity measures:",
+            "sensory_considerations": "Sensory-friendly accommodations:",
+            "overall_inclusivity": "Overall inclusivity assessment:",
+        }
+
+        def process_dict(category_dict: Dict[str, List[int]]) -> List[str]:
+            results = []
+            for key, value in category_dict.items():
+                if value[1] > 0:  # If there are any ratings
+                    percentage = (value[0] / value[1]) * 100
+                    status = "Available" if percentage >= 50 else "Limited"
+                    results.append(f"- {key.replace('_', ' ').title()}: {status}")
+            return results
+
+        def process_rating(rating: Tuple[int, int]) -> str:
+            if rating[1] > 0:
+                avg_rating = rating[0] / rating[1]
+                return f"{avg_rating:.1f}/5"
+            return "No ratings available"
+
+        client = await get_openai_client()
+
+        for category in categories:
+            dict_field = f"{category}_dict"
+            rating_field = f"{category}_rating"
+            text_field = f"{category}_texts"
+
+            category_summary = [f"## {category.replace('_', ' ').title()}"]
+            category_summary.append(category_intros[category])
+
+            # Process dictionary data
+            if hasattr(aggregation, dict_field):
+                category_dict = getattr(aggregation, dict_field)
+                feature_summary = process_dict(category_dict)
+                if feature_summary:
+                    category_summary.append("\nFeatures:")
+                    category_summary.extend(feature_summary)
+                else:
+                    category_summary.append("\nNo specific features reported.")
+
+            # Process rating
+            if hasattr(aggregation, rating_field):
+                rating = getattr(aggregation, rating_field)
+                category_summary.append(f"\nAverage rating: {process_rating(rating)}")
+
+            # Process text reviews
+            if hasattr(aggregation, text_field):
+                texts = getattr(aggregation, text_field)
+                if texts:
+                    full_text = "\n".join(texts)
+                    prompt = f". Disregard all numeric fields, don't apply any formatting. Only provide a summary of the reviews that aims to provide readers a quick understanding of that accessibility field for the building. Summarize the following accessibility reviews for {category.replace('_', ' ')} in 1-2 sentences, highlighting key points and areas for improvement:\n\n{full_text}"
+
+                    try:
+                        response = client.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {
+                                    "role": "system",
+                                    "content": "You are a helpful assistant summarizing accessibility reviews.",
+                                },
+                                {"role": "user", "content": prompt},
+                            ],
+                        )
+                        summary_text = response.choices[0].message.content
+                        category_summary.append(
+                            f"\nUser feedback summary: {summary_text}"
+                        )
+                    except Exception as e:
+                        logger.error(f"Error in OpenAI summarization: {str(e)}")
+                        category_summary.append("\nError in summarizing user comments.")
+                else:
+                    category_summary.append(
+                        "\nNo user comments available for this category."
+                    )
+
+            summary[category.replace("_", " ").title()] = "\n".join(category_summary)
+
+        return summary

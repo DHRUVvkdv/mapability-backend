@@ -34,6 +34,19 @@ async def update_aggregation(GID: str):
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
+@router.get("/summarize-building/{GID}")
+async def summarize_building(GID: str):
+    try:
+        summary = await AggregationService.summarize_building(GID)
+        return JSONResponse(content={"summary": summary})
+    except PyMongoError as e:
+        logger.error(f"Database error in summarize_building: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error in summarize_building: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
 @router.post("/debug-update-aggregation/{GID}")
 async def debug_update_aggregation(GID: str):
     try:
