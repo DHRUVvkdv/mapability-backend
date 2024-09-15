@@ -38,6 +38,99 @@ def check_accessibility(aggregation: Dict[str, Any], categories: List[str]) -> b
     return True
 
 
+async def generate_detailed_summary(plan: Dict[str, Any]) -> str:
+    client = await get_openai_client()
+    prompt = f"""
+    Create a detailed, user-friendly summary of the following plan:
+
+    User Input: {plan['user_input']}
+    Suggested Activities: {plan['suggested_activities']}
+    User Disabilities: {plan['user_disabilities']}
+    Accessible Buildings: {plan['accessible_buildings']}
+
+    Please include:
+    1. A brief introduction based on the user's input.
+    2. Details of the suggested activities and why they were chosen.
+    3. Information about the accessible buildings, including their names and how they cater to the user's needs.
+    4. Any other relevant details that would be helpful for the user.
+
+    Format the summary in a clear, easy-to-read manner, using appropriate line breaks and sections.
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant providing detailed, user-friendly summaries of activity plans. Focus on clarity, relevance, and ease of reading.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+    )
+
+    return response.choices[0].message.content
+
+
+async def generate_summary_and_affirmation(plan: Dict[str, Any]) -> Dict[str, str]:
+    client = await get_openai_client()
+    prompt = f"""
+    Based on the following plan, provide a brief summary and an affirmation for the user:
+
+    User Input: {plan['user_input']}
+    Suggested Activities: {plan['suggested_activities']}
+    User Disabilities: {plan['user_disabilities']}
+
+    Please format your response as JSON with two keys: 'summary' and 'affirmation'.
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant providing summaries and affirmations for users' plans. Respond with a JSON object containing 'summary' and 'affirmation' keys.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+    )
+
+    try:
+        content = response.choices[0].message.content
+        return json.loads(content)
+    except json.JSONDecodeError:
+        logger.error(f"Failed to parse JSON from OpenAI response: {content}")
+        return {
+            "summary": "Unable to generate summary.",
+            "affirmation": "Unable to generate affirmation.",
+        }
+
+
+# async def summarize_accessibility_texts(buildings: List[Any]) -> Dict[str, str]:
+#     client = await get_openai_client()
+#     summaries = {}
+#
+#     for building in buildings:
+#         accessibility_texts = []
+#         for category in ['mobility', 'hearing', 'vision', 'cognitive', 'sensory']:
+#             texts = getattr(building, f'{category}_accessibility_texts', [])
+#             accessibility_texts.extend(texts)
+#
+#         if accessibility_texts:
+#             prompt = f"Summarize the following accessibility information for {building.buildingName}:\n\n" + "\n".join(accessibility_texts)
+#
+#             response = client.chat.completions.create(
+#                 model="gpt-3.5-turbo",
+#                 messages=[
+#                     {"role": "system", "content": "You are a helpful assistant summarizing accessibility information."},
+#                     {"role": "user", "content": prompt}
+#                 ]
+#             )
+#
+#             summaries[building.buildingName] = response.choices[0].message.content
+#
+#     return summaries
+
+
 # Category functions
 def get_entertainment():
     return {
@@ -191,6 +284,19 @@ async def comprehensive_plan(email: str, user_input: str):
             "accessible_buildings": filtered_buildings,
             "sources_for_llm": sources,
         }
+
+        # Generate detailed summary
+        detailed_summary = await generate_detailed_summary(response)
+        response["detailed_summary"] = detailed_summary
+
+        # Step 5: Generate summary and affirmation
+        # summary_and_affirmation = await generate_summary_and_affirmation(response)
+        # response["summary"] = summary_and_affirmation["summary"]
+        # response["affirmation"] = summary_and_affirmation["affirmation"]
+
+        # Step 6: Summarize accessibility texts (commented out for now)
+        # accessibility_summaries = await summarize_accessibility_texts(filtered_buildings)
+        # response['accessibility_summaries'] = accessibility_summaries
 
         logger.info(f"Comprehensive plan created for user {email}")
         return response
@@ -500,20 +606,3 @@ Please categorize the user's input and provide a brief explanation for each cate
         raise HTTPException(
             status_code=500, detail=f"Error in debug OpenAI response: {str(e)}"
         )
-
-
-# returning the buildings requried for the user
-# @router.get(
-#     "/user-accessibility-needs/{email}",
-#     response_model=Dict[str, Any],
-# )
-# async def get_user_accessibility_needs(email: str):
-#     try:
-#         accessibility_info = (
-#             await AccessibilityService.get_user_accessibility_categories(email)
-#         )
-#         logger.info(f"Accessibility info found for user {email}: {accessibility_info}")
-#         return accessibility_info
-#     except Exception as e:
-#         logger.error(f"Error processing accessibility needs for {email}: {str(e)}")
-#         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
