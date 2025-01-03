@@ -250,6 +250,27 @@ async def comprehensive_plan(email: str, user_input: str):
         user_disabilities = user_accessibility_info["user_disabilities"]
         building_categories = user_accessibility_info["building_categories"]
 
+        # If no disabilities are marked, create a generic plan
+        if not user_disabilities:
+            # Create a generic response
+            suggested_activities = await normal_analyze_user_input(user_input)
+            response = {
+                "user_input": user_input,
+                "user_disabilities": {},
+                "suggested_activities": suggested_activities,
+                "accessible_buildings": [],  # Empty since no specific accessibility needs
+                "sources_for_llm": [],
+                "detailed_summary": "We notice you haven't specified any accessibility preferences. "
+                + "To get personalized recommendations tailored to your needs, "
+                + "consider updating your profile with any relevant accessibility requirements. "
+                + "Here's a general plan based on your request:\n\n"
+                + f"Activities suggested based on your input: {user_input}",
+            }
+            logger.info(
+                f"Generated generic plan for user {email} with no specified disabilities"
+            )
+            return response
+
         suggested_activities = await normal_analyze_user_input(user_input)
         plan = {
             "user_input": user_input,

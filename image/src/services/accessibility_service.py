@@ -11,26 +11,19 @@ class AccessibilityService:
         try:
             profile = await ProfileService.get_profile_by_email(email)
             if not profile:
-                # #logger.debug(f"No profile found for email: {email}")
+                logger.info(f"No profile found for email: {email}")
                 return {}
-
-            # #logger.debug(f"Raw profile data: {profile}")
 
             user_accessibility_needs = {}
             for category in ["mobility", "cognitive", "hearing", "vision", "other"]:
                 if hasattr(profile, category):
                     category_data = getattr(profile, category)
-                    # #logger.debug(f"Category {category} data: {category_data}")
                     needs = [key for key, value in category_data.items() if value]
                     if needs:
                         user_accessibility_needs[category] = needs
 
             if hasattr(profile, "LGBTQ") and profile.LGBTQ:
                 user_accessibility_needs["LGBTQ"] = ["LGBTQ"]
-
-            # #logger.debug(
-            #     f"Processed accessibility needs for {email}: {user_accessibility_needs}"
-            # )
 
             if not user_accessibility_needs:
                 logger.info(f"No accessibility needs found for user: {email}")
@@ -54,7 +47,6 @@ class AccessibilityService:
         }
 
         building_categories = set()
-
         for category, disabilities_list in disabilities.items():
             if disabilities_list:  # Only process non-empty lists
                 if category in category_mapping:
@@ -73,7 +65,7 @@ class AccessibilityService:
             )
             if not user_disabilities:
                 logger.info(f"No accessibility needs found for user: {email}")
-                return {"message": "NA"}
+                return {"user_disabilities": {}, "building_categories": []}
 
             building_categories = (
                 AccessibilityService.map_disabilities_to_building_categories(
